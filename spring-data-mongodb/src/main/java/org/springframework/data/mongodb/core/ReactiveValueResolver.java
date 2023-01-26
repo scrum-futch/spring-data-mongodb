@@ -37,10 +37,11 @@ class ReactiveValueResolver {
 			for (Entry<String, Object> entry : source.entrySet()) {
 				Object value = entry.getValue();
 				if (value instanceof DBRef dbRef) {
-					return prepareDbRefResolution(dbRefResolver.initFetch(dbRef).defaultIfEmpty(new Document()).map(resolved -> {
-						source.put(entry.getKey(), resolved.isEmpty() ? null : resolved);
-						return source;
-					}), dbRefResolver);
+					return prepareDbRefResolution(dbRefResolver.initFetch(dbRef).defaultIfEmpty(new Document())
+							.flatMap(it -> prepareDbRefResolution(Mono.just(it), dbRefResolver)).map(resolved -> {
+								source.put(entry.getKey(), resolved.isEmpty() ? null : resolved);
+								return source;
+							}), dbRefResolver);
 				}
 				if (value instanceof Document nested) {
 					return prepareDbRefResolution(Mono.just(nested), dbRefResolver).map(it -> {
@@ -51,9 +52,9 @@ class ReactiveValueResolver {
 				if (value instanceof List<?> list) {
 					return Flux.fromIterable(list).concatMap(it -> {
 						if (it instanceof DBRef dbRef) {
-							return dbRefResolver.initFetch(dbRef);
+							return prepareDbRefResolution(dbRefResolver.initFetch(dbRef), dbRefResolver);
 						}
-						if(it instanceof Document document) {
+						if (it instanceof Document document) {
 							return prepareDbRefResolution(Mono.just(document), dbRefResolver);
 						}
 						return Mono.just(it);

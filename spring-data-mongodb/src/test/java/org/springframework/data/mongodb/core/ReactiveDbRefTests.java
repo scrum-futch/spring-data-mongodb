@@ -15,14 +15,15 @@
  */
 package org.springframework.data.mongodb.core;
 
-import java.util.List;
-
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import reactor.test.StepVerifier;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.test.util.Assertions;
 import org.springframework.data.mongodb.test.util.Client;
@@ -90,15 +91,75 @@ public class ReactiveDbRefTests {
 
 	}
 
+	@Test // GH-2496
+	void loadDbRefHoldingJetAnotherOne() {
+
+		Roo rooSource = new Roo();
+		rooSource.id = "roo-1";
+		rooSource.name = "roo-the-kangaroo";
+		syncTemplate.save(rooSource);
+
+		Bar barSource = new Bar();
+		barSource.id = "bar-1";
+		barSource.value = "bar-1-value";
+		barSource.roo = rooSource;
+		syncTemplate.save(barSource);
+
+		Foo fooSource = new Foo();
+		fooSource.id = "foo-1";
+		fooSource.name = "foo-1-name";
+		fooSource.bar = barSource;
+		syncTemplate.save(fooSource);
+
+		template.query(Foo.class).matching(Criteria.where("id").is(fooSource.id)).first().as(StepVerifier::create)
+				.consumeNextWith(foo -> {
+					Assertions.assertThat(foo.bar).isEqualTo(barSource);
+					Assertions.assertThat(foo.bar.roo).isEqualTo(rooSource);
+				}).verifyComplete();
+
+	}
+
+	@Test // GH-2496
+	void loadListOfDbRefHoldingJetAnotherOne() {
+
+		Roo rooSource = new Roo();
+		rooSource.id = "roo-1";
+		rooSource.name = "roo-the-kangaroo";
+		syncTemplate.save(rooSource);
+
+		Bar bar1Source = new Bar();
+		bar1Source.id = "bar-1";
+		bar1Source.value = "bar-1-value";
+		bar1Source.roo = rooSource;
+		syncTemplate.save(bar1Source);
+
+		Bar bar2Source = new Bar();
+		bar2Source.id = "bar-2";
+		bar2Source.value = "bar-2-value";
+		syncTemplate.save(bar2Source);
+
+		Foo fooSource = new Foo();
+		fooSource.id = "foo-1";
+		fooSource.name = "foo-1-name";
+		fooSource.bars = List.of(bar1Source, bar2Source);
+		syncTemplate.save(fooSource);
+
+		template.query(Foo.class).matching(Criteria.where("id").is(fooSource.id)).first().as(StepVerifier::create)
+				.consumeNextWith(foo -> {
+					Assertions.assertThat(foo.bars).containsExactly(bar1Source, bar2Source);
+				}).verifyComplete();
+
+	}
+
 	@ToString
 	static class Foo {
 		String id;
 		String name;
 
-		@org.springframework.data.mongodb.core.mapping.DBRef //
+		@DBRef //
 		Bar bar;
 
-		@org.springframework.data.mongodb.core.mapping.DBRef //
+		@DBRef //
 		List<Bar> bars;
 	}
 
@@ -108,5 +169,13 @@ public class ReactiveDbRefTests {
 		String id;
 		String value;
 
+		@DBRef Roo roo;
+	}
+
+	@ToString
+	@EqualsAndHashCode
+	static class Roo {
+		String id;
+		String name;
 	}
 }
