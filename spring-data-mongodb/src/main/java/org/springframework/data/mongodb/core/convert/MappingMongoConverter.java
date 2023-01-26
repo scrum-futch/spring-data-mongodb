@@ -15,6 +15,7 @@
  */
 package org.springframework.data.mongodb.core.convert;
 
+import javax.print.Doc;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -668,8 +669,14 @@ public class MappingMongoConverter extends AbstractMongoConverter implements App
 		}
 
 		DBRef dbref = value instanceof DBRef ? (DBRef) value : null;
-		if(dbref == null && dbRefResolver instanceof NoOpDbRefResolver && value instanceof Document document) {
-			accessor.setProperty(property, read(property.getActualType(), document));
+		if(dbref == null && dbRefResolver instanceof NoOpDbRefResolver) {
+			if(value instanceof Document document) {
+				accessor.setProperty(property, read(property.getActualType(), document));
+			}
+			if(value instanceof List<?> list) {
+				List<?> collect = list.stream().map(it -> read(property.getActualType(), (Document) it)).collect(Collectors.toList());
+				accessor.setProperty(property, collect);
+			}
 			return;
 		}
 

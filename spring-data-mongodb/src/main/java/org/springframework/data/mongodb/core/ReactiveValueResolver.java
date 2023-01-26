@@ -15,6 +15,7 @@
  */
 package org.springframework.data.mongodb.core;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -48,8 +49,18 @@ class ReactiveValueResolver {
 					});
 				}
 				if (value instanceof List<?> list) {
-					// TODO: lists are qutie a beast
-					// return list.stream().m
+					return Flux.fromIterable(list).concatMap(it -> {
+						if (it instanceof DBRef dbRef) {
+							return dbRefResolver.initFetch(dbRef);
+						}
+						if(it instanceof Document document) {
+							return prepareDbRefResolution(Mono.just(document), dbRefResolver);
+						}
+						return Mono.just(it);
+					}).collectList().map(resolved -> {
+						source.put(entry.getKey(), resolved.isEmpty() ? null : resolved);
+						return source;
+					});
 				}
 			}
 			return Mono.just(source);

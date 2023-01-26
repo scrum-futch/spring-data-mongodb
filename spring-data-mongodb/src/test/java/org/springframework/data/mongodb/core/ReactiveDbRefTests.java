@@ -15,6 +15,8 @@
  */
 package org.springframework.data.mongodb.core;
 
+import java.util.List;
+
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import reactor.test.StepVerifier;
@@ -41,7 +43,7 @@ public class ReactiveDbRefTests {
 	ReactiveMongoTemplate template = new ReactiveMongoTemplate(MongoClients.create(), DB_NAME);
 	MongoTemplate syncTemplate = new MongoTemplate(com.mongodb.client.MongoClients.create(), DB_NAME);
 
-	@Test
+	@Test // GH-2496
 	void loadDbRef() {
 
 		Bar barSource = new Bar();
@@ -62,12 +64,42 @@ public class ReactiveDbRefTests {
 
 	}
 
+	@Test // GH-2496
+	void loadListOFDbRef() {
+
+		Bar bar1Source = new Bar();
+		bar1Source.id = "bar-1";
+		bar1Source.value = "bar-1-value";
+		syncTemplate.save(bar1Source);
+
+		Bar bar2Source = new Bar();
+		bar2Source.id = "bar-1";
+		bar2Source.value = "bar-1-value";
+		syncTemplate.save(bar2Source);
+
+		Foo fooSource = new Foo();
+		fooSource.id = "foo-1";
+		fooSource.name = "foo-1-name";
+		fooSource.bars = List.of(bar1Source, bar2Source);
+		syncTemplate.save(fooSource);
+
+		template.query(Foo.class).matching(Criteria.where("id").is(fooSource.id)).first().as(StepVerifier::create)
+				.consumeNextWith(foo -> {
+					Assertions.assertThat(foo.bars).containsExactly(bar1Source, bar2Source);
+				}).verifyComplete();
+
+	}
+
 	@ToString
 	static class Foo {
 		String id;
 		String name;
 
-		@org.springframework.data.mongodb.core.mapping.DBRef Bar bar;
+		@org.springframework.data.mongodb.core.mapping.DBRef //
+		Bar bar;
+
+		@org.springframework.data.mongodb.core.mapping.DBRef //
+		List<Bar> bars;
 	}
 
 	@ToString
