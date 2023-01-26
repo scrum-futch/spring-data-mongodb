@@ -39,7 +39,6 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.conversions.Bson;
 import org.bson.json.JsonReader;
 import org.bson.types.ObjectId;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.context.ApplicationContext;
@@ -669,6 +668,10 @@ public class MappingMongoConverter extends AbstractMongoConverter implements App
 		}
 
 		DBRef dbref = value instanceof DBRef ? (DBRef) value : null;
+		if(dbref == null && dbRefResolver instanceof NoOpDbRefResolver && value instanceof Document document) {
+			accessor.setProperty(property, read(property.getActualType(), document));
+			return;
+		}
 
 		accessor.setProperty(property, dbRefResolver.resolveDbRef(property, dbref, callback, handler));
 	}
