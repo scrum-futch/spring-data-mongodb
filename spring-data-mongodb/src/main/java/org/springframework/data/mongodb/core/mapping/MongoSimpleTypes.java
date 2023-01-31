@@ -75,6 +75,7 @@ public abstract class MongoSimpleTypes {
 		simpleTypes.add(UUID.class);
 		simpleTypes.add(Instant.class);
 
+		simpleTypes.add(BsonArray.class);
 		simpleTypes.add(BsonBinary.class);
 		simpleTypes.add(BsonBoolean.class);
 		simpleTypes.add(BsonDateTime.class);
